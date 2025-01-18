@@ -30,34 +30,33 @@
                 <a class="nav-link active" aria-current="true" href="#">Log In</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link" href="/register">Sign Up</a>
+                <a class="nav-link" href="/auth/register">Sign Up</a>
               </li>
             </ul>
           </div>
           <div class="card-body">
             <h5 class="card-title pt-3">Log in to your TaskSync account</h5>
-            <form method="post" action="/index">
+            <form method="post" action="/auth/login">
               <!--INPUT user_email-->
               <div class="mb-3 input-group has-validation">
                 <div class="form-floating is-invalid">
-                  <input type="email" class="form-control" id="user_email" placeholder="example@email.com" required>
+                  <input type="email" class="form-control" name="user_email"  placeholder="example@email.com" required>
                   <label for="user_email" class="form-label">Email address</label>
                 </div>
                 <div class="invalid-feedback">
-
                 </div>
               </div>
               <!--INPUT PASSWORD-->
               <div class="mb-3 input-group has-validation">
                 <div class="form-floating is-invalid">
-                  <input type="password" class="form-control" id="user_password" placeholder="Password" required>
+                  <input type="password" class="form-control" name="user_password" placeholder="Password" required>
                   <label for="user_password" class="form-label">Password</label>
                 </div>
                 <div class="invalid-feedback">
 
                 </div>
                 <div class="mb-3 form-check">
-                  <input type="checkbox" class="form-check-input" id="password_remember">
+                  <input type="checkbox" class="form-check-input" name="password_remember">
                   <label class="form-check-label" for="password_remember">Remember password</label>
                 </div>
               </div>

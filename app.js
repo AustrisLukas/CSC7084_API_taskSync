@@ -2,9 +2,11 @@ const express = require('express');
 //const morgan = require('morgan');
 const fs = require('fs');
 const path = require('path');
-const router = require("./routes/router.js");
+const router = require("./routes/userRoutes.js");
 const dotenv = require('dotenv').config({ path: './config.env' });
 const dbpool = require(path.join(__dirname, '/utils/dbconn.js'));
+const session = require("express-session");
+const auth = require(path.join(__dirname, '/routes/authRoutes.js'));
 
 //const cookieParser = require("cookie-parser");
 //const session = require("express-session");
@@ -18,17 +20,26 @@ app.use(express.urlencoded({ extended: true }));
 //app.use(cookieParser());
 //app.use(morgan('tiny'));
 app.use(express.static(path.join(__dirname, '/public')));
+app.use(
+    session({
+        name: "SESSIONID",
+        secret: "my-secret-key",
+        resave: "false",
+        saveUninitialized: false,
+    })
+);
 
 app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "ejs");
 
+
 /** 
 app.use('/', (req, res, next) =>{
-    console.log(`payload of this message: ${req.body.selected_category}`);
+    console.log(`payload of this message: ${req.body.user_password}`);
     next();
 });
 */
-
+app.use('/auth', auth);
 app.use('/', router);
 startServer();
 
