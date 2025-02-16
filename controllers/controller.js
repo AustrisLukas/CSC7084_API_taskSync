@@ -1,0 +1,190 @@
+const path = require("path");
+const dbpool = require(path.join(__dirname, "/..", "/utils/dbconn.js"));
+const { appendSortSuffix, getCheckboxState } = require(path.join(__dirname, "/..", "/utils/filterSortUtils.js"));
+const { format } = require("date-fns");
+const { logMessage } = require(path.join(__dirname, "/..", "/utils/apiUtils.js"));
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+
+exports.testAPI = async (req,res)=>{
+  logMessage('Executing testAPI.');
+
+  const SELECT_1 = 'SELECT 1';
+  try {
+    dbpool.query(SELECT_1);
+    logMessage('testAPI - Success.')
+    res.status(200).json({ success: true});
+
+  } catch (err){
+    logMessage('testAPI - Failed.')
+    res.status(500).json({ success: false});
+  }
+}
+
+
+exports.getUserID = async (req, res) => {
+  const { user_email } = req.body;
+  logMessage(`Executing getUserID for ${user_email}.`);
+  const SELECT_USER_ID = `SELECT user_id FROM user_account WHERE user_email = '${user_email}'`;
+
+  try {
+    const [rows] = await dbpool.query(SELECT_USER_ID);
+    if (rows.length > 0) {
+      res.status(200).json(rows);
+    } else {
+      res.status(404).json({ error: "No matching records found" });
+    }
+  } catch (error) {
+    res.status(500).send("Internal Server Error");
+    console.error("Error querying the database:", err);
+  }
+};
+
+exports.getUserCategories = async (req, res) => {
+  const { id } = req.params;
+  logMessage(`Executing getUserCategories for user_id ${id}.`);
+  const SELECT_USER_DEFINED_CATEGORIES = `SELECT category_name FROM task_category WHERE task_category.user_id = ${id}`;
+
+  try {
+    const [rows] = await dbpool.query(SELECT_USER_DEFINED_CATEGORIES);
+    res.status(200);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).send("Internal Server Error");
+    console.error("Error querying the database:", err);
+  }
+};
+
+exports.getUserTasks = async (req, res) => {
+  const { id } = req.params;
+  logMessage(`Executing getUserTasks for user_id ${id}.`);
+  const SELECT_USER_TASKS = `SELECT * FROM task 
+  INNER JOIN task_category ON task.task_category_id = task_category.task_category_id 
+  INNER JOIN category_colour ON task_category.colour_id = category_colour.colour_id 
+  WHERE task.user_id = ${id}`;
+
+  try {
+    const [rows] = await dbpool.query(SELECT_USER_TASKS);
+    res.status(200);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).send("Internal Server Error");
+    console.error("Error querying the database:", err);
+  }
+};
+
+exports.getUserTasksFiltered = async (req, res) => {
+  logMessage(`Executing getUserTasksFiltered`);
+
+  const SELECT_FILTERED = `SELECT * FROM task
+INNER JOIN
+task_category ON task.task_category_id = task_category.task_category_id
+INNER JOIN 
+category_colour ON task_category.colour_id = category_colour.colour_id
+WHERE task.user_id = ? AND category_name IN (?)`;
+
+  const { sort_by, selected_category, show_completed, user_id } = req.body;
+
+  try {
+    const [rows] = await dbpool.query(appendSortSuffix(sort_by, SELECT_FILTERED), [user_id, selected_category]);
+    res.status(200);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).send("Internal Server Error");
+    console.error("Error querying the database:", err);
+  }
+};
+
+exports.processLogin = async (req, res) => {
+  logMessage(`Executing processLogin`);
+  let duration;
+
+  const { user_email, user_password, password_remember } = req.body;
+  if (password_remember){
+    duration = '12h';
+  } else {
+    duration = '1h';
+  }
+  
+  const SELECT_USER = "SELECT * FROM user_account WHERE user_email = ?";
+  try {
+    const [users] = await dbpool.query(SELECT_USER, user_email);
+    if (users.length < 1) {
+      return res.status(404).json({ error: "User not found." });
+    }
+    if (await bcrypt.compare(user_password, users[0].hashed_password)) {
+      logMessage(`Succesfull login to ${user_email} account.`);
+      const token = jwt.sign(
+        {
+          user_id: users[0].user_id,
+          user_email: users[0].user_email,
+          role: users[0].role_id,
+          logged_in: true,
+        },
+        process.env.JWT_KEY,
+        { expiresIn: duration }
+      );
+
+      res.status(200).json({
+        message: "Login succesful",
+        token,
+        users,
+      });
+    } else {
+      //reject log in
+      return res.status(401).json({ error: "Incorrect username or password credentials. Try again" });
+    }
+  } catch (err) {
+    res.status(500).send("Internal Server Error");
+    console.error("Error querying the database:", err);
+  }
+};
+
+
+exports.processRegister = async (req,res)=>{
+  logMessage('Executing processRegister');
+
+  const { name, user_email, password2 } = req.body;
+
+  //Check that email address is not already in use.
+  const SELECT_USERS = "SELECT * FROM user_account WHERE user_email = ?";
+  try {
+    const [new_user] = await dbpool.query(SELECT_USERS, user_email);
+    if (new_user && new_user.length > 0) {
+      return res.status(409).send("<h1>Error 409</h1><h2>Email already in use</h2>");
+    }
+  } catch (error) {
+    console.error("Error querying the database:", error);
+    res.status(500).send("Internal Server Error");
+  }
+
+  //If no match found, proceed with user registration
+  const INSERT_INTO_user_details = "INSERT INTO user_details (first_name, last_name, last_edit_timestamp) VALUES (?, ?,current_timestamp())";
+  const INSERT_INTO_user_account =
+    "INSERT INTO user_account (user_email, hashed_password, date_created, account_status_id, user_details_id, role_id) VALUES (?, ?, current_timestamp(), ?, ?, ?)";
+
+    const connection = await dbpool.getConnection();
+  try {
+    await connection.beginTransaction();
+    //Write user details
+    const [userDetailsResult] = await connection.query(INSERT_INTO_user_details, [name, null]);
+    //Write user account details
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password2, salt);
+    const accountStatus = 1;
+    const user_details_id = userDetailsResult.insertId;
+    const role_id = 1;
+    const [userAccountResult] = await connection.query(INSERT_INTO_user_account, [user_email, hashedPassword, accountStatus, user_details_id, role_id]);
+    await connection.commit();
+    return res.status(200).json({message: 'New user account registered successfully.'});
+    
+  } catch (error) {
+    console.error("Error querying the database:", error);
+    connection.rollback();
+    res.status(500).send("Internal Server Error");
+  } finally {
+    connection.release();
+  }
+
+
+}

@@ -1,9 +1,8 @@
 /**
- * Creates and module.exports database pool for use in the app.
- * 
+ * Initiates and exports database pool connection for use in the API.
  */
-
 const mysql = require('mysql2');
+const { logMessage } = require('./apiUtils');
 const dotenv = require('dotenv').config({ path: './config.env' });
 
 const dbpool = mysql.createPool ({
@@ -13,6 +12,7 @@ const dbpool = mysql.createPool ({
     password: process.env.DB_PASS,
     port: process.env.DB_PORT
 });
+
 
 
 
