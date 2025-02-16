@@ -110,7 +110,7 @@ exports.processLogin = async (req, res) => {
   try {
     const [users] = await dbpool.query(SELECT_USER, user_email);
     if (users.length < 1) {
-      return res.status(404).json({ error: "User not found." });
+      return res.status(404).json({ error: "User not found. Try again." });
     }
     if (await bcrypt.compare(user_password, users[0].hashed_password)) {
       logMessage(`Succesfull login to ${user_email} account.`);
@@ -132,7 +132,7 @@ exports.processLogin = async (req, res) => {
       });
     } else {
       //reject log in
-      return res.status(401).json({ error: "Incorrect username or password credentials. Try again" });
+      return res.status(401).json({ error: "Incorrect username, or password credentials. Try again" });
     }
   } catch (err) {
     res.status(500).send("Internal Server Error");
@@ -151,7 +151,7 @@ exports.processRegister = async (req,res)=>{
   try {
     const [new_user] = await dbpool.query(SELECT_USERS, user_email);
     if (new_user && new_user.length > 0) {
-      return res.status(409).send("<h1>Error 409</h1><h2>Email already in use</h2>");
+      return res.status(409).json({error: 'User e-mail already in use, try another registering with a different address.'});
     }
   } catch (error) {
     console.error("Error querying the database:", error);
