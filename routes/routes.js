@@ -11,5 +11,12 @@ router.post('/user/getuserid', controller.getUserID);
 router.post('/user/tasks', controller.getUserTasksFiltered)
 router.post('/login', controller.processLogin);
 router.post('/register', controller.processRegister);
+router.post('/newtask', controller.processNewTask);
+
+router.put('/update', controller.updateTask);
+
+router.patch('/complete/:id', controller.completeTask)
+
+router.delete('/delete/:id', controller.deleteTask);
 
 module.exports = router;

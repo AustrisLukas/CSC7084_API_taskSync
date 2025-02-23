@@ -6,21 +6,19 @@ const { logMessage } = require(path.join(__dirname, "/..", "/utils/apiUtils.js")
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 
-exports.testAPI = async (req,res)=>{
-  logMessage('Executing testAPI.');
+exports.testAPI = async (req, res) => {
+  logMessage("Executing testAPI.");
 
-  const SELECT_1 = 'SELECT 1';
+  const SELECT_1 = "SELECT 1";
   try {
     dbpool.query(SELECT_1);
-    logMessage('testAPI - Success.')
-    res.status(200).json({ success: true});
-
-  } catch (err){
-    logMessage('testAPI - Failed.')
-    res.status(500).json({ success: false});
+    logMessage("testAPI - Success.");
+    res.status(200).json({ success: true });
+  } catch (err) {
+    logMessage("testAPI - Failed.");
+    res.status(500).json({ success: false });
   }
-}
-
+};
 
 exports.getUserID = async (req, res) => {
   const { user_email } = req.body;
@@ -43,12 +41,23 @@ exports.getUserID = async (req, res) => {
 exports.getUserCategories = async (req, res) => {
   const { id } = req.params;
   logMessage(`Executing getUserCategories for user_id ${id}.`);
-  const SELECT_USER_DEFINED_CATEGORIES = `SELECT category_name FROM task_category WHERE task_category.user_id = ${id}`;
+
+  const SELECT_USER_DEFINED_CATEGORIES = `SELECT 
+  task_category.task_category_id,
+  task_category.category_name,
+  task_category.user_id,
+  task_category.colour_id,
+  category_colour.colour_name,
+  category_colour.colour_url
+  FROM task_category INNER JOIN category_colour ON task_category.colour_id = category_colour.colour_id WHERE task_category.user_id = ${id}`;
+
+  //const SELECT_USER_DEFINED_CATEGORIES = `SELECT * FROM task_category WHERE task_category.user_id = ${id}`;
 
   try {
     const [rows] = await dbpool.query(SELECT_USER_DEFINED_CATEGORIES);
     res.status(200);
     res.json(rows);
+    //console.log(rows);
   } catch (err) {
     res.status(500).send("Internal Server Error");
     console.error("Error querying the database:", err);
@@ -100,12 +109,12 @@ exports.processLogin = async (req, res) => {
   let duration;
 
   const { user_email, user_password, password_remember } = req.body;
-  if (password_remember){
-    duration = '12h';
+  if (password_remember) {
+    duration = "12h";
   } else {
-    duration = '1h';
+    duration = "1h";
   }
-  
+
   const SELECT_USER = "SELECT * FROM user_account WHERE user_email = ?";
   try {
     const [users] = await dbpool.query(SELECT_USER, user_email);
@@ -114,16 +123,8 @@ exports.processLogin = async (req, res) => {
     }
     if (await bcrypt.compare(user_password, users[0].hashed_password)) {
       logMessage(`Succesfull login to ${user_email} account.`);
-      const token = jwt.sign(
-        {
-          user_id: users[0].user_id,
-          user_email: users[0].user_email,
-          role: users[0].role_id,
-          logged_in: true,
-        },
-        process.env.JWT_KEY,
-        { expiresIn: duration }
-      );
+      const token = jwt.sign({},process.env.JWT_KEY,{ expiresIn: duration });
+      //const {user_id, user_email,user_details_id, role_id} = users;
 
       res.status(200).json({
         message: "Login succesful",
@@ -140,9 +141,8 @@ exports.processLogin = async (req, res) => {
   }
 };
 
-
-exports.processRegister = async (req,res)=>{
-  logMessage('Executing processRegister');
+exports.processRegister = async (req, res) => {
+  logMessage("Executing processRegister");
 
   const { name, user_email, password2 } = req.body;
 
@@ -151,7 +151,7 @@ exports.processRegister = async (req,res)=>{
   try {
     const [new_user] = await dbpool.query(SELECT_USERS, user_email);
     if (new_user && new_user.length > 0) {
-      return res.status(409).json({error: 'User e-mail already in use, try another registering with a different address.'});
+      return res.status(409).json({ error: "User e-mail already in use, try another registering with a different address." });
     }
   } catch (error) {
     console.error("Error querying the database:", error);
@@ -163,7 +163,7 @@ exports.processRegister = async (req,res)=>{
   const INSERT_INTO_user_account =
     "INSERT INTO user_account (user_email, hashed_password, date_created, account_status_id, user_details_id, role_id) VALUES (?, ?, current_timestamp(), ?, ?, ?)";
 
-    const connection = await dbpool.getConnection();
+  const connection = await dbpool.getConnection();
   try {
     await connection.beginTransaction();
     //Write user details
@@ -176,8 +176,7 @@ exports.processRegister = async (req,res)=>{
     const role_id = 1;
     const [userAccountResult] = await connection.query(INSERT_INTO_user_account, [user_email, hashedPassword, accountStatus, user_details_id, role_id]);
     await connection.commit();
-    return res.status(200).json({message: 'New user account registered successfully.'});
-    
+    return res.status(200).json({ message: "New user account registered successfully." });
   } catch (error) {
     console.error("Error querying the database:", error);
     connection.rollback();
@@ -185,6 +184,84 @@ exports.processRegister = async (req,res)=>{
   } finally {
     connection.release();
   }
+};
+
+exports.processNewTask = async (req, res) => {
+  logMessage('Executing processNewTask');
+  const { task_title, task_desc, task_duedate, star_level, user_id, task_cat_id} = req.body;
+
+  const INSERT_NEW_TASK = `INSERT INTO task (task_id, task_name, task_desc, created_date, due_date, date_completed, star_level, task_status_id, task_category_id, user_id) VALUES (NULL, ?, ?, current_timestamp(), ?, NULL, ?, 0, ?, ?)`;
+
+  try {
+    const result = await dbpool.query(INSERT_NEW_TASK, [task_title, task_desc, task_duedate, star_level, task_cat_id,user_id,]);
+    return res.status(200).json({message: 'New task created succesfully.'});
+  } catch (err) {
+    return res.status(500).json({message: 'Error occurred while creating new task. Try again.'});
+  }
+};
+
+exports.updateTask = async (req, res)=>{
+  logMessage('Executing updateTask');
+
+  
+
+  const {task_name, task_desc, task_duedate, task_cat, task_star, task_id} = req.body;
+  
+
+  const UPDATE_TASK = `UPDATE task SET
+   task_name = ?,
+   task_desc = ?,
+   due_date = ?,
+   task_category_id = ?,
+   star_level = ?
+   WHERE task_id = ?`
+
+   try {
+    const [result]= await dbpool.query(UPDATE_TASK, [task_name, task_desc, task_duedate, task_cat, task_star, task_id]);
+    return res.status(200).json({message: `Task updated succesfully, ${result.affectedRows} row affected.`})
+
+   } catch (err){
+    logMessage(err);
+    return res.status(500).json({message: 'Error occurred while updating task. Try again.'});
+   }
+}
+
+exports.deleteTask = async (req,res) =>{
+
+  const {id} = req.params;
+  logMessage(`Executing deleteTask for task_id = ${id}`);
+
+  const DELETE_TASK = `DELETE FROM task WHERE task_id = ?`;
+
+  try {
+    const [result] = await dbpool.query(DELETE_TASK, id);
+    logMessage(`Deletion succesfully executed for task_id ${id},  ${result.affectedRows} rows affected.`);
+    return res.status(200).json({message: `Deletion succesfully executed for task_id ${id},  ${result.affectedRows} rows affected.`});
+  } catch (err){
+    logMessage(err);
+    return res.status(500).json({message: "Error occurred while deleting task. Try again."})
+  }
+}
+
+exports.completeTask = async (req,res) =>{
+
+  const {id} = req.params;
+  logMessage(`Executing completeTask for task_id = ${id}`);
+
+  const COMPLETE_TASK = 'UPDATE task SET task_status_id = 1, date_completed = current_timestamp() WHERE task_id = ?';
+
+  try{
+    const [result] = await dbpool.query(COMPLETE_TASK, id);
+    logMessage(`Succesfully completed task_id ${id},  ${result.affectedRows} rows affected.`);
+    return res.status(200).json({message: `Succesfully completed task_id ${id},  ${result.affectedRows} rows affected.`});
+  } catch (err){
+    logMessage(err);
+    return res.status(500).json({message: "Error occurred while completing task. Try again."})
+  }
+  
+  
+  
 
 
+    
 }
