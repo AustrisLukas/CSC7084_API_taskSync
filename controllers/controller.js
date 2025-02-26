@@ -123,7 +123,7 @@ exports.processLogin = async (req, res) => {
     }
     if (await bcrypt.compare(user_password, users[0].hashed_password)) {
       logMessage(`Succesfull login to ${user_email} account.`);
-      const token = jwt.sign({},process.env.JWT_KEY,{ expiresIn: duration });
+      const token = jwt.sign({}, process.env.JWT_KEY, { expiresIn: duration });
       //const {user_id, user_email,user_details_id, role_id} = users;
 
       res.status(200).json({
@@ -146,6 +146,12 @@ exports.processRegister = async (req, res) => {
 
   const { name, user_email, password2 } = req.body;
 
+  const defaultCategoryName1 = 'Work';
+  const defaultCategoryName2 = 'Home';
+  const defaultCategoryColour1 = 1;
+  const defaultCategoryColour2 = 2;
+
+
   //Check that email address is not already in use.
   const SELECT_USERS = "SELECT * FROM user_account WHERE user_email = ?";
   try {
@@ -162,6 +168,7 @@ exports.processRegister = async (req, res) => {
   const INSERT_INTO_user_details = "INSERT INTO user_details (first_name, last_name, last_edit_timestamp) VALUES (?, ?,current_timestamp())";
   const INSERT_INTO_user_account =
     "INSERT INTO user_account (user_email, hashed_password, date_created, account_status_id, user_details_id, role_id) VALUES (?, ?, current_timestamp(), ?, ?, ?)";
+  const INSERT_INTO_task_category = "INSERT INTO task_category (category_name, user_id, colour_id) VALUES (?, ?, ?)";
 
   const connection = await dbpool.getConnection();
   try {
@@ -175,6 +182,12 @@ exports.processRegister = async (req, res) => {
     const user_details_id = userDetailsResult.insertId;
     const role_id = 1;
     const [userAccountResult] = await connection.query(INSERT_INTO_user_account, [user_email, hashedPassword, accountStatus, user_details_id, role_id]);
+
+    //Create default categories for new user
+    const user_id = userAccountResult.insertId;
+    await connection.query(INSERT_INTO_task_category,[defaultCategoryName1,user_id, defaultCategoryColour1]);
+    await connection.query(INSERT_INTO_task_category,[defaultCategoryName2,user_id, defaultCategoryColour2]);
+
     await connection.commit();
     return res.status(200).json({ message: "New user account registered successfully." });
   } catch (error) {
@@ -187,26 +200,23 @@ exports.processRegister = async (req, res) => {
 };
 
 exports.processNewTask = async (req, res) => {
-  logMessage('Executing processNewTask');
-  const { task_title, task_desc, task_duedate, star_level, user_id, task_cat_id} = req.body;
+  logMessage("Executing processNewTask");
+  const { task_title, task_desc, task_duedate, star_level, user_id, task_cat_id } = req.body;
 
   const INSERT_NEW_TASK = `INSERT INTO task (task_id, task_name, task_desc, created_date, due_date, date_completed, star_level, task_status_id, task_category_id, user_id) VALUES (NULL, ?, ?, current_timestamp(), ?, NULL, ?, 0, ?, ?)`;
 
   try {
-    const result = await dbpool.query(INSERT_NEW_TASK, [task_title, task_desc, task_duedate, star_level, task_cat_id,user_id,]);
-    return res.status(200).json({message: 'New task created succesfully.'});
+    const result = await dbpool.query(INSERT_NEW_TASK, [task_title, task_desc, task_duedate, star_level, task_cat_id, user_id]);
+    return res.status(200).json({ message: "New task created succesfully." });
   } catch (err) {
-    return res.status(500).json({message: 'Error occurred while creating new task. Try again.'});
+    return res.status(500).json({ message: "Error occurred while creating new task. Try again." });
   }
 };
 
-exports.updateTask = async (req, res)=>{
-  logMessage('Executing updateTask');
+exports.updateTask = async (req, res) => {
+  logMessage("Executing updateTask");
 
-  
-
-  const {task_name, task_desc, task_duedate, task_cat, task_star, task_id} = req.body;
-  
+  const { task_name, task_desc, task_duedate, task_cat, task_star, task_id } = req.body;
 
   const UPDATE_TASK = `UPDATE task SET
    task_name = ?,
@@ -214,21 +224,19 @@ exports.updateTask = async (req, res)=>{
    due_date = ?,
    task_category_id = ?,
    star_level = ?
-   WHERE task_id = ?`
+   WHERE task_id = ?`;
 
-   try {
-    const [result]= await dbpool.query(UPDATE_TASK, [task_name, task_desc, task_duedate, task_cat, task_star, task_id]);
-    return res.status(200).json({message: `Task updated succesfully, ${result.affectedRows} row affected.`})
-
-   } catch (err){
+  try {
+    const [result] = await dbpool.query(UPDATE_TASK, [task_name, task_desc, task_duedate, task_cat, task_star, task_id]);
+    return res.status(200).json({ message: `Task updated succesfully, ${result.affectedRows} row affected.` });
+  } catch (err) {
     logMessage(err);
-    return res.status(500).json({message: 'Error occurred while updating task. Try again.'});
-   }
-}
+    return res.status(500).json({ message: "Error occurred while updating task. Try again." });
+  }
+};
 
-exports.deleteTask = async (req,res) =>{
-
-  const {id} = req.params;
+exports.deleteTask = async (req, res) => {
+  const { id } = req.params;
   logMessage(`Executing deleteTask for task_id = ${id}`);
 
   const DELETE_TASK = `DELETE FROM task WHERE task_id = ?`;
@@ -236,32 +244,69 @@ exports.deleteTask = async (req,res) =>{
   try {
     const [result] = await dbpool.query(DELETE_TASK, id);
     logMessage(`Deletion succesfully executed for task_id ${id},  ${result.affectedRows} rows affected.`);
-    return res.status(200).json({message: `Deletion succesfully executed for task_id ${id},  ${result.affectedRows} rows affected.`});
-  } catch (err){
+    return res.status(200).json({ message: `Deletion succesfully executed for task_id ${id},  ${result.affectedRows} rows affected.` });
+  } catch (err) {
     logMessage(err);
-    return res.status(500).json({message: "Error occurred while deleting task. Try again."})
+    return res.status(500).json({ message: "Error occurred while deleting task. Try again." });
   }
-}
+};
 
-exports.completeTask = async (req,res) =>{
-
-  const {id} = req.params;
+exports.completeTask = async (req, res) => {
+  const { id } = req.params;
   logMessage(`Executing completeTask for task_id = ${id}`);
 
-  const COMPLETE_TASK = 'UPDATE task SET task_status_id = 1, date_completed = current_timestamp() WHERE task_id = ?';
+  const COMPLETE_TASK = "UPDATE task SET task_status_id = 1, date_completed = current_timestamp() WHERE task_id = ?";
 
-  try{
+  try {
     const [result] = await dbpool.query(COMPLETE_TASK, id);
     logMessage(`Succesfully completed task_id ${id},  ${result.affectedRows} rows affected.`);
-    return res.status(200).json({message: `Succesfully completed task_id ${id},  ${result.affectedRows} rows affected.`});
-  } catch (err){
+    return res.status(200).json({ message: `Succesfully completed task_id ${id},  ${result.affectedRows} rows affected.` });
+  } catch (err) {
     logMessage(err);
-    return res.status(500).json({message: "Error occurred while completing task. Try again."})
+    return res.status(500).json({ message: "Error occurred while completing task. Try again." });
   }
-  
-  
-  
+};
 
+exports.getAvailableColours = async (req, res) => {
+  logMessage(`Executing getAvailableColours`);
+  const SELECT_ALL_CATEGORY_COLOURS = `SELECT * FROM category_colour`;
 
-    
-}
+  try {
+    const [result] = await dbpool.query(SELECT_ALL_CATEGORY_COLOURS);
+    res.status(200).json(result);
+  } catch (err) {
+    res.status(500).json({ message: "Error occured while getting category colours" });
+  }
+};
+
+exports.updateCategories = async (req, res) => {
+  logMessage(`Executing updateCategories`);
+  const { task_category_id, category_name, colour_id } = req.body;
+
+  const UPDATE_CATEGORIES = `UPDATE task_category SET category_name = ?, colour_id = ? WHERE task_category.task_category_id = ?`;
+
+  try {
+    for (let i = 0; i < req.body.task_category_id.length; i++) {
+      await dbpool.query(UPDATE_CATEGORIES, [category_name[i], colour_id[i], task_category_id[i]]);
+    }
+    return res.status(200).json({ message: "Categories updated" });
+  } catch (err) {
+    return res.status(500).json({ message: "Error occured while updating categories" });
+  }
+};
+
+exports.addNewCategory = async (req, res) => {
+  logMessage(`Executing addNewCategory`);
+
+  const { category_name, user_id, colour_id } = req.body;
+
+  const INSERT_INTO_CATEGORIES = `INSERT INTO task_category (task_category_id, category_name, user_id, colour_id) VALUES(NULL, ?, ?, ?)`;
+
+  try {
+    const result = dbpool.query(INSERT_INTO_CATEGORIES, [category_name, user_id, colour_id]);
+    return res.status(200).json({ message: `New category succesfully created` });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).json({ message: "Error occrred while creating new task category" });
+  }
+};
