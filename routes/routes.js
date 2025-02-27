@@ -1,5 +1,6 @@
 const express = require('express');
 const controller = require('../controllers/controller');
+const statsController = require('../controllers/statsController');
 const router = express.Router();
 
 
@@ -7,6 +8,7 @@ router.get('/user/tasks/:id', controller.getUserTasks);
 router.get('/user/categories/:id', controller.getUserCategories);
 router.get('/testAPI', controller.testAPI);
 router.get('/getcolours', controller.getAvailableColours);
+router.get('/stats/taskspercategory/:id', statsController.getTasksPerCategory);
 
 router.post('/user/getuserid', controller.getUserID);
 router.post('/user/tasks', controller.getUserTasksFiltered)

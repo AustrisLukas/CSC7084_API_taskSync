@@ -10,7 +10,8 @@ const {logMessage} = require(path.join(__dirname, "/utils/apiUtils.js"))
 //const cookieParser = require("cookie-parser");
 //const session = require("express-session");
 //const authRouter = require("./routes/auth");
-
+const cors = require('cors');
+app.use(cors({ origin: 'http://localhost:3001' }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
