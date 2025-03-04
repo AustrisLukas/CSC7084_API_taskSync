@@ -8,7 +8,11 @@ router.get('/user/tasks/:id', controller.getUserTasks);
 router.get('/user/categories/:id', controller.getUserCategories);
 router.get('/testAPI', controller.testAPI);
 router.get('/getcolours', controller.getAvailableColours);
+//STATS GET ROUTES
 router.get('/stats/taskspercategory/:id', statsController.getTasksPerCategory);
+router.get('/stats/getduesummary/:id', statsController.getDueSummary);
+router.get('/stats/getopencompletesummary/:id', statsController.getOpenCompleteSummary);
+router.get('/stats/geturgencysummary/:id', statsController.getUrgencySummary);
 
 router.post('/user/getuserid', controller.getUserID);
 router.post('/user/tasks', controller.getUserTasksFiltered)
