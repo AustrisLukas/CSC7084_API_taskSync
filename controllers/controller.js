@@ -5,6 +5,8 @@ const { format } = require("date-fns");
 const { logMessage } = require(path.join(__dirname, "/..", "/utils/apiUtils.js"));
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const { validationResult } = require("express-validator");
+
 
 exports.testAPI = async (req, res) => {
   logMessage("Executing testAPI.");
@@ -106,8 +108,21 @@ WHERE task.user_id = ? AND category_name IN (?)`;
 
 exports.processLogin = async (req, res) => {
   logMessage(`Executing processLogin`);
-  let duration;
 
+  
+  //Check for validation errors and handle
+  const errors = validationResult(req);
+  if (!errors.isEmpty()){
+    
+    const errorMessages = errors.array().map(error => error.msg)
+    logMessage(`Input validation failed in processLogin: ${errorMessages}`);
+    return res.status(400).json({
+      message: "Backend validation: Failed",
+      errorMessages: errorMessages
+    })
+  }
+
+  let duration;
   const { user_email, user_password, password_remember } = req.body;
   if (password_remember) {
     duration = "12h";
@@ -117,14 +132,16 @@ exports.processLogin = async (req, res) => {
 
   const SELECT_USER = "SELECT * FROM user_account WHERE user_email = ?";
   try {
+    //Check that at least one username matches provided username
     const [users] = await dbpool.query(SELECT_USER, user_email);
     if (users.length < 1) {
       return res.status(404).json({ error: "User not found. Try again." });
     }
+    //Compare provided password with retrieved username and its password.
     if (await bcrypt.compare(user_password, users[0].hashed_password)) {
       logMessage(`Succesfull login to ${user_email} account.`);
+      //Log in success - generate jwt token
       const token = jwt.sign({}, process.env.JWT_KEY, { expiresIn: duration });
-      //const {user_id, user_email,user_details_id, role_id} = users;
 
       res.status(200).json({
         message: "Login succesful",
@@ -142,15 +159,25 @@ exports.processLogin = async (req, res) => {
 };
 
 exports.processRegister = async (req, res) => {
+
   logMessage("Executing processRegister");
 
-  const { name, user_email, password2 } = req.body;
+  //Check for validation errors in user input.
+  const errors = validationResult(req);
+  if (!errors.isEmpty()){
+    const errorMessages = errors.array().map(error => error.msg)
+    logMessage(`Input validation failed in processRegister: ${errorMessages}`);
+    return res.status(400).json({
+      message: "Backend validation: Failed",
+      errorMessages: errorMessages
+    })
+  }
 
+  const { name, user_email, password2 } = req.body;
   const defaultCategoryName1 = 'Work';
   const defaultCategoryName2 = 'Home';
   const defaultCategoryColour1 = 1;
   const defaultCategoryColour2 = 2;
-
 
   //Check that email address is not already in use.
   const SELECT_USERS = "SELECT * FROM user_account WHERE user_email = ?";
@@ -201,8 +228,8 @@ exports.processRegister = async (req, res) => {
 
 exports.processNewTask = async (req, res) => {
   logMessage("Executing processNewTask");
+  
   const { task_title, task_desc, task_duedate, star_level, user_id, task_cat_id } = req.body;
-
   const INSERT_NEW_TASK = `INSERT INTO task (task_id, task_name, task_desc, created_date, due_date, date_completed, star_level, task_status_id, task_category_id, user_id) VALUES (NULL, ?, ?, current_timestamp(), ?, NULL, ?, 0, ?, ?)`;
 
   try {
