@@ -2,7 +2,6 @@
  * Initiates and exports database pool connection for use in the API.
  */
 const mysql = require('mysql2');
-const { logMessage } = require('./apiUtils');
 const dotenv = require('dotenv').config({ path: './config.env' });
 
 const dbpool = mysql.createPool ({
