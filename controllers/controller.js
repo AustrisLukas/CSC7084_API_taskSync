@@ -59,7 +59,7 @@ exports.getUserCategories = async (req, res) => {
     const [rows] = await dbpool.query(SELECT_USER_DEFINED_CATEGORIES);
     res.status(200);
     res.json(rows);
-    //console.log(rows);
+    
   } catch (err) {
     res.status(500).send("Internal Server Error");
     console.error("Error querying the database:", err);
@@ -96,10 +96,16 @@ WHERE task.user_id = ? AND category_name IN (?)`;
 
   const { sort_by, selected_category, show_completed, user_id } = req.body;
 
+
+
+  
+
   try {
     const [rows] = await dbpool.query(appendSortSuffix(sort_by, SELECT_FILTERED), [user_id, selected_category]);
+  
     res.status(200);
     res.json(rows);
+    
   } catch (err) {
     res.status(500).send("Internal Server Error");
     console.error("Error querying the database:", err);
@@ -228,7 +234,7 @@ exports.processRegister = async (req, res) => {
 
 exports.processNewTask = async (req, res) => {
   logMessage("Executing processNewTask");
-  
+
   const { task_title, task_desc, task_duedate, star_level, user_id, task_cat_id } = req.body;
   const INSERT_NEW_TASK = `INSERT INTO task (task_id, task_name, task_desc, created_date, due_date, date_completed, star_level, task_status_id, task_category_id, user_id) VALUES (NULL, ?, ?, current_timestamp(), ?, NULL, ?, 0, ?, ?)`;
 
