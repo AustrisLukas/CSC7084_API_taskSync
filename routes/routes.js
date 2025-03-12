@@ -7,7 +7,6 @@ const middleware = require('../middleware/inputValidation')
 
 
 //GET routes
-router.get('/user/tasks/:id', controller.getUserTasks);
 router.get('/user/categories/:id', controller.getUserCategories);
 router.get('/testAPI', controller.testAPI);
 router.get('/getcolours', controller.getAvailableColours);
@@ -29,7 +28,7 @@ router.post('/addnewcategory',middleware.sanitizeAllFields, controller.addNewCat
 router.put('/update',middleware.sanitizeAllFields, controller.updateTask);
 
 //PATCH routes
-router.patch('/complete/:id', middleware.sanitizeAllFields, controller.completeTask)
+router.patch('/complete/:id', middleware.sanitizeAllFields, controller.completeTask);
 router.patch('/updateCategories',middleware.sanitizeAllFields, controller.updateCategories);
 
 //DELETE routes
