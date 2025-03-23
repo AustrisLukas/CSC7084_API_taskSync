@@ -113,7 +113,7 @@ category_colour ON task_category.colour_id = category_colour.colour_id
 WHERE task.user_id = ? AND category_name IN (?)`;
 
   const { sort_by, selected_category, show_completed, user_id } = req.body;
-  console.log(selected_category);
+  //console.log(selected_category);
 
   try {
     const [rows] = await dbpool.query(appendSortSuffix(sort_by, SELECT_FILTERED), [user_id, selected_category]);
@@ -335,9 +335,26 @@ exports.deleteTask = async (req, res) => {
   const { id } = req.params;
   logMessage(`Executing deleteTask for task_id = ${id}`);
 
-  const DELETE_TASK = `DELETE FROM task WHERE task_id = ?`;
-
+  //CHECK IF USER REQUESTER OWNS TASK BEFORE DELETION
   try {
+    const TASK_OWNER_ID = `SELECT user_id FROM task where task_id = ${id}`;
+    const [taskOwnerID] = await dbpool.query(TASK_OWNER_ID);
+    //console.log(taskOwnerID[0].user_id);
+
+    if (req.headers.user_id != taskOwnerID[0].user_id) {
+      logMessage(`Task Delete rejected, user_id missmatch`);
+      return res
+        .status(401)
+        .json({ message: "Task Delete rejected, user_id missmatch" });
+    }
+  } catch (err) {
+    logMessage(err);
+    return res.status(500).json({ message: "Error occurred while deleting task. Try again." });
+  }
+
+  //PROCEED WITH TASK DELETION
+  try {
+    const DELETE_TASK = `DELETE FROM task WHERE task_id = ?`;
     const [result] = await dbpool.query(DELETE_TASK, id);
     if (result.affectedRows < 1) return res.status(404).json({message: `Unanble to delete task, task_id ${id} not found.`});
     logMessage(`Deletion succesfully executed for task_id ${id},  ${result.affectedRows} rows affected.`);
@@ -397,7 +414,7 @@ exports.getAvailableColours = async (req, res) => {
 exports.updateCategories = async (req, res) => {
   logMessage(`Executing updateCategories`);
   const { task_category_id, category_name, colour_id } = req.body;
-
+  
   const UPDATE_CATEGORIES = `UPDATE task_category SET category_name = ?, colour_id = ? WHERE task_category.task_category_id = ?`;
 
   try {
