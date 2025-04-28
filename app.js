@@ -10,6 +10,8 @@ const {logMessage} = require(path.join(__dirname, "/utils/apiUtils.js"))
 //const cookieParser = require("cookie-parser");
 //const session = require("express-session");
 //const authRouter = require("./routes/auth");
+const cors = require('cors');
+
 
 
 app.use(express.json());
@@ -24,6 +26,11 @@ app.use('/', (req, res, next) =>{
     next();
 });
 */
+
+app.use(cors({
+    origin: 'https://tasksync-v1-avg6aabqb8b5eyh7.westeurope-01.azurewebsites.net', 
+    credentials: true // if you send cookies / sessions
+  }));
 
 
 app.use('/', router);
